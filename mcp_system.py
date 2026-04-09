@@ -3,13 +3,11 @@ import json
 import time
 import random
 from google import genai
-from dotenv import load_dotenv
 from google.genai import types, errors
 from blackboard import write_to_blackboard
 
-load_dotenv()
 # 1. SETUP
-API_KEY = os.getenv("GEMINI_API_KEY") 
+API_KEY = "AIzaSyCiSKkow7y_CVGUkhi5WnH3Uzshlh0ObV0" 
 client = genai.Client(api_key=API_KEY)
 
 def get_dynamic_persona(task):

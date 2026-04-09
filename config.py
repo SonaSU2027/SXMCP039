@@ -1,4 +1,4 @@
 TASK = {
-    "task_id": "TASK_001",
-    "description": "Fix 3 bugs in repository"
+    "task_id": "SOLARIX_PROJ_01", # Change this to test multi-tasking
+    "description": "Secure the user authentication logic against SQL injection vulnerabilities."
 }

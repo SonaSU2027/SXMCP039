@@ -14,7 +14,11 @@ def calculate_improvement(old, new):
 
 def calculate_density(result):
     # We measure the length of the findings vs the tokens used
-    # A higher score means the system is more efficient at conveying info
     text_length = len(str(result.get("progress", "")))
-    tokens = result.get("tokens", 1)
+    tokens = result.get("tokens", 0)
+    
+    # If tokens are 0 due to an API error, return 0.0 instead of crashing
+    if tokens == 0:
+        return 0.0
+        
     return (text_length / tokens) * 100

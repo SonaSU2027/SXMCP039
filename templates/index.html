@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SolariX | Agentic OS Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-200 font-mono">
+
+    <div class="max-w-6xl mx-auto p-8">
+        <header class="mb-10 border-b border-slate-800 pb-6">
+            <h1 class="text-4xl font-bold text-cyan-400">🛰 SOLARI-X <span class="text-lg text-slate-500 font-light">Context Bus Monitor</span></h1>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="space-y-6">
+                <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-2xl">
+                    <h2 class="text-cyan-500 mb-4 text-sm uppercase tracking-widest">Command Center</h2>
+                    <textarea id="taskInput" class="w-full bg-black border border-slate-700 rounded p-3 text-sm text-cyan-100 focus:border-cyan-500 outline-none" rows="4">{{ default_task }}</textarea>
+                    <button onclick="runComparison()" id="runBtn" class="w-full mt-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded transition-all active:scale-95">
+                        EXECUTE HEAD-TO-HEAD
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl">
+                        <h2 class="text-slate-500 mb-2 text-xs uppercase tracking-tighter">Information Density (Novelty)</h2>
+                        <div class="text-3xl font-bold text-cyan-400" id="densityVal">+0.00%</div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl">
+                        <h2 class="text-slate-500 mb-2 text-xs uppercase tracking-tighter">Token Reduction Efficiency</h2>
+                        <div class="text-3xl font-bold text-green-400" id="tokenRed">0%</div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl">
+                        <h2 class="text-slate-500 mb-2 text-xs uppercase tracking-tighter">Latency Improvement</h2>
+                        <div class="text-3xl font-bold text-amber-400" id="latencyRed">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-8">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                        <canvas id="tokenChart"></canvas>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-black border border-slate-800 rounded-xl overflow-hidden shadow-inner">
+                    <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 text-xs text-cyan-500 font-bold flex justify-between">
+                        <span>SYSTEM_BUS_LOGS (SQLITE_STATE)</span>
+                        <span id="rawLatency" class="text-slate-500 font-normal italic"></span>
+                    </div>
+                    <div id="busLog" class="p-4 h-48 overflow-y-auto space-y-2 text-xs">
+                        <div class="text-slate-600">>> Waiting for system initialization...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tChart, lChart;
+
+        async function runComparison() {
+            const btn = document.getElementById('runBtn');
+            const task = document.getElementById('taskInput').value;
+            const log = document.getElementById('busLog');
+            
+            btn.disabled = true;
+            btn.innerText = "RUNNING AGENTS...";
+            log.innerHTML += `<div class="text-cyan-400 mt-2">> Handing over context to Gemini-2.0-Flash...</div>`;
+
+            try {
+                const res = await fetch('/api/compare', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({task: task})
+                });
+                const data = await res.json();
+
+                // 1. Update Percentage Metrics
+                document.getElementById('densityVal').innerText = `+${data.metrics.density_gain.toFixed(2)}%`;
+                document.getElementById('tokenRed').innerText = `${data.metrics.token_reduction}%`;
+                document.getElementById('latencyRed').innerText = `${data.metrics.latency_improvement}%`;
+                
+                // 2. Update Raw Latency Display
+                document.getElementById('rawLatency').innerText = `MCP Latency: ${data.mcp.latency.toFixed(4)}s`;
+
+                // 3. Update Log
+                log.innerHTML += `<div class="text-green-400">> MCP Analysis Complete. Syncing Blackboard...</div>`;
+                log.innerHTML += `<div class="text-slate-400">> Findings: ${JSON.stringify(data.mcp.progress)}</div>`;
+
+                updateCharts(data);
+            } catch (error) {
+                log.innerHTML += `<div class="text-red-500">> SYSTEM ERROR: Connection to bridge lost.</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "EXECUTE HEAD-TO-HEAD";
+                log.scrollTop = log.scrollHeight;
+            }
+        }
+
+        function updateCharts(data) {
+            const ctxT = document.getElementById('tokenChart').getContext('2d');
+            const ctxL = document.getElementById('latencyChart').getContext('2d');
+
+            if(tChart) tChart.destroy();
+            if(lChart) lChart.destroy();
+
+            const options = { 
+                responsive: true, 
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                    x: { ticks: { color: '#94a3b8' } }
+                }
+            };
+
+            tChart = new Chart(ctxT, {
+                type: 'bar',
+                data: {
+                    labels: ['Baseline', 'MCP'],
+                    datasets: [{ label: 'Tokens', data: [data.baseline.tokens, data.mcp.tokens], backgroundColor: ['#334155', '#22d3ee'] }]
+                },
+                options: { ...options, plugins: { ...options.plugins, title: { display: true, text: 'Token Consumption', color: '#94a3b8' } } }
+            });
+
+            lChart = new Chart(ctxL, {
+                type: 'bar',
+                data: {
+                    labels: ['Baseline', 'MCP'],
+                    datasets: [{ label: 'Latency', data: [data.baseline.latency, data.mcp.latency], backgroundColor: ['#334155', '#fbbf24'] }]
+                },
+                options: { ...options, plugins: { ...options.plugins, title: { display: true, text: 'Latency (Seconds)', color: '#94a3b8' } } }
+            });
+        }
+    </script>
+</body>
+</html>
